@@ -40,12 +40,15 @@ class Subscription(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default=DEFAULT_CURRENCY)
     billing_cycle: Mapped[BillingCycle] = mapped_column(
-        Enum(BillingCycle, name="billing_cycle_enum"), default=BillingCycle.MONTHLY
+        Enum(BillingCycle, name="billing_cycle_enum",
+             values_callable=lambda e: [m.value for m in e]),
+        default=BillingCycle.MONTHLY,
     )
     next_renewal_date: Mapped[date | None] = mapped_column(Date)
     trial_end_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[SubscriptionStatus] = mapped_column(
-        Enum(SubscriptionStatus, name="subscription_status_enum"),
+        Enum(SubscriptionStatus, name="subscription_status_enum",
+             values_callable=lambda e: [m.value for m in e]),
         default=SubscriptionStatus.ACTIVE,
     )
     confidence_score: Mapped[Decimal] = mapped_column(

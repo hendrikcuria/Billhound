@@ -29,7 +29,8 @@ class CancellationLog(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     service_name: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[CancellationStatus] = mapped_column(
-        Enum(CancellationStatus, name="cancellation_status_enum"),
+        Enum(CancellationStatus, name="cancellation_status_enum",
+             values_callable=lambda e: [m.value for m in e]),
         default=CancellationStatus.INITIATED,
     )
     method: Mapped[str] = mapped_column(String(50), nullable=False)
