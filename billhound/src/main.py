@@ -76,6 +76,8 @@ async def main() -> None:
         token=settings.telegram_bot_token.get_secret_value(),
         session_factory=session_factory,
         settings=settings,
+        gmail_oauth=gmail_oauth,
+        outlook_oauth=outlook_oauth,
     )
     await bot_app.initialize()
     await bot_app.start()

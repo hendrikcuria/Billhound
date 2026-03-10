@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.email_ingestion.types import SubscriptionSignal
+from src.llm.gemini_provider import GeminiProvider
 from src.llm.openai_provider import OpenAIProvider, _parse_response
 
 
@@ -141,6 +142,66 @@ class TestOpenAIProvider:
         with patch.object(
             provider._client.chat.completions,
             "create",
+            new_callable=AsyncMock,
+            side_effect=Exception("API error"),
+        ):
+            signals = [
+                SubscriptionSignal(
+                    source="email_body",
+                    raw_text="test",
+                    sender="test@test.com",
+                )
+            ]
+            results = await provider.extract_subscriptions(signals)
+            assert results == []
+
+
+class TestGeminiProvider:
+    @pytest.mark.asyncio
+    async def test_extract_with_mock(self) -> None:
+        provider = GeminiProvider(api_key="test-key", model="gemini-2.0-flash")
+
+        mock_response = MagicMock()
+        mock_response.text = json.dumps({
+            "subscriptions": [
+                {
+                    "service_name": "Netflix",
+                    "amount": 54.00,
+                    "confidence_score": 0.95,
+                }
+            ]
+        })
+
+        with patch.object(
+            provider._client.aio.models,
+            "generate_content",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ):
+            signals = [
+                SubscriptionSignal(
+                    source="email_subject",
+                    raw_text="Netflix receipt RM 54.00",
+                    sender="noreply@netflix.com",
+                )
+            ]
+            results = await provider.extract_subscriptions(signals)
+            assert len(results) == 1
+            assert results[0].service_name == "Netflix"
+
+    @pytest.mark.asyncio
+    async def test_empty_signals(self) -> None:
+        provider = GeminiProvider(api_key="test-key")
+        results = await provider.extract_subscriptions([])
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_api_error_returns_empty(self) -> None:
+        provider = GeminiProvider(api_key="test-key")
+
+        with patch.object(
+            provider._client.aio.models,
+            "generate_content",
             new_callable=AsyncMock,
             side_effect=Exception("API error"),
         ):

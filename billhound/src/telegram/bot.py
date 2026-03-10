@@ -11,11 +11,17 @@ def create_bot_application(
     token: str,
     session_factory: async_sessionmaker[AsyncSession],
     settings: Settings,
+    gmail_oauth: object | None = None,
+    outlook_oauth: object | None = None,
 ) -> Application:
     app = Application.builder().token(token).build()
 
     app.bot_data["session_factory"] = session_factory
     app.bot_data["settings"] = settings
+    if gmail_oauth:
+        app.bot_data["gmail_oauth"] = gmail_oauth
+    if outlook_oauth:
+        app.bot_data["outlook_oauth"] = outlook_oauth
 
     from src.telegram.handlers.add import add_handler
     from src.telegram.handlers.confirm import confirm_handler
@@ -29,6 +35,7 @@ def create_bot_application(
         deleteaccount_handler,
     )
     from src.telegram.handlers.mydata import mydata_handler
+    from src.telegram.handlers.oauth_connect import connect_handler
     from src.telegram.handlers.remove import remove_handler
     from src.telegram.handlers.start import start_handler
     from src.telegram.handlers.subscriptions import subscriptions_handler
@@ -43,6 +50,7 @@ def create_bot_application(
     app.add_handler(CommandHandler("deleteaccount", deleteaccount_handler))
     app.add_handler(CommandHandler("mycreds", mycreds_handler))
     app.add_handler(CommandHandler("deletecreds", deletecreds_handler))
+    app.add_handler(CommandHandler("connect", connect_handler))
 
     # Text message handlers (more specific first)
     app.add_handler(MessageHandler(

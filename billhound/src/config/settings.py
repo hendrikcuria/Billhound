@@ -59,7 +59,7 @@ class Settings(BaseSettings):
     oauth_redirect_base_url: str = "http://localhost:8080"
 
     # -- LLM --
-    llm_provider: Literal["openai", "anthropic"] = "openai"
+    llm_provider: Literal["openai", "anthropic", "gemini"] = "openai"
     llm_api_key: SecretStr = Field(default=SecretStr(""))
     llm_model: str = "gpt-4o-mini"
 

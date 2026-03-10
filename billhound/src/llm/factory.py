@@ -16,5 +16,9 @@ def create_llm_provider(settings: Settings) -> BaseLLMProvider:
         from src.llm.anthropic_provider import AnthropicProvider
 
         return AnthropicProvider(api_key=api_key, model=settings.llm_model)
+    elif settings.llm_provider == "gemini":
+        from src.llm.gemini_provider import GeminiProvider
+
+        return GeminiProvider(api_key=api_key, model=settings.llm_model)
     else:
         raise ValueError(f"Unknown LLM provider: {settings.llm_provider}")
