@@ -11,7 +11,7 @@ import structlog
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from src.telegram.handlers._common import get_user_or_reply
+from src.db.repositories.user_repo import UserRepository
 
 logger = structlog.get_logger()
 
@@ -44,11 +44,29 @@ async def connect_handler(
         )
         return
 
+    await _connect_provider(update, context, provider)
+
+
+async def _connect_provider(
+    update: Update, context: ContextTypes.DEFAULT_TYPE, provider: str
+) -> None:
+    """Shared logic for connecting an email provider (command or callback)."""
     session_factory = context.bot_data["session_factory"]
 
     async with session_factory() as session:
-        user = await get_user_or_reply(update, session)
+        user_repo = UserRepository(session)
+        user = await user_repo.get_by_telegram_id(update.effective_user.id)
         if not user:
+            # Determine reply target (message vs callback query)
+            if update.callback_query:
+                await context.bot.send_message(
+                    update.effective_chat.id,
+                    "You need to register first. Send /start",
+                )
+            else:
+                await update.message.reply_text(
+                    "You need to register first. Send /start"
+                )
             return
         user_id = str(user.id)
 
@@ -58,10 +76,14 @@ async def connect_handler(
 
     if not oauth_client:
         logger.error("connect.oauth_client_missing", provider=provider)
-        await update.message.reply_text(
+        msg = (
             f"{provider.title()} connection is not configured. "
             "Please contact support."
         )
+        if update.callback_query:
+            await context.bot.send_message(update.effective_chat.id, msg)
+        else:
+            await update.message.reply_text(msg)
         return
 
     auth_url = oauth_client.get_authorization_url(user_id)
@@ -74,12 +96,18 @@ async def connect_handler(
         )]
     ])
 
-    await update.message.reply_text(
+    msg = (
         f"Click the button below to connect your {provider_name} inbox.\n\n"
         "You'll be redirected to sign in and grant read-only access to your emails. "
-        "After authorizing, I'll automatically scan the last 90 days for subscriptions.",
-        reply_markup=keyboard,
+        "After authorizing, I'll automatically scan the last 90 days for subscriptions."
     )
+
+    if update.callback_query:
+        await context.bot.send_message(
+            update.effective_chat.id, msg, reply_markup=keyboard
+        )
+    else:
+        await update.message.reply_text(msg, reply_markup=keyboard)
 
     logger.info(
         "connect.auth_url_sent",

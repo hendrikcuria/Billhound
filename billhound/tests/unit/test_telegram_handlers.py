@@ -16,6 +16,7 @@ from src.telegram.handlers.deleteaccount import (
     deleteaccount_confirm_handler,
     deleteaccount_handler,
 )
+from src.telegram.handlers.help import help_handler
 from src.telegram.handlers.mydata import mydata_handler
 from src.telegram.handlers.remove import remove_handler
 from src.telegram.handlers.start import start_handler
@@ -37,6 +38,7 @@ def _make_update(telegram_id=12345, text="", username="testuser", first_name="Te
     update.effective_user.first_name = first_name
     update.message.text = text
     update.message.reply_text = AsyncMock()
+    update.callback_query = None  # not a callback query
     return update
 
 
@@ -57,6 +59,9 @@ class TestStartHandler:
 
         reply_text = update.message.reply_text.call_args[0][0]
         assert "Welcome to Billhound" in reply_text
+        # Should include dashboard keyboard
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs
 
     @pytest.mark.asyncio
     async def test_returning_user(self, session_factory) -> None:
@@ -77,6 +82,9 @@ class TestStartHandler:
 
         reply_text = update.message.reply_text.call_args[0][0]
         assert "Welcome back" in reply_text
+        # Should include dashboard keyboard
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs
 
         # Username should be updated
         async with session_factory() as session:
@@ -99,7 +107,7 @@ class TestSubscriptionsHandler:
         await subscriptions_handler(update, ctx)
 
         reply_text = update.message.reply_text.call_args[0][0]
-        assert "No active subscriptions" in reply_text
+        assert "0 active subscriptions tracked" in reply_text
 
     @pytest.mark.asyncio
     async def test_with_subscriptions(self, session_factory) -> None:
@@ -334,3 +342,21 @@ class TestDeleteAccountHandler:
 
         reply_text = update.message.reply_text.call_args[0][0]
         assert "No account found" in reply_text
+
+
+class TestHelpHandler:
+    @pytest.mark.asyncio
+    async def test_help_shows_commands(self) -> None:
+        update = _make_update(telegram_id=900070)
+        ctx = MagicMock()
+
+        await help_handler(update, ctx)
+
+        reply_text = update.message.reply_text.call_args[0][0]
+        assert "Command Reference" in reply_text
+        assert "/subscriptions" in reply_text
+        assert "add" in reply_text
+        assert "cancel" in reply_text
+        # Should include dashboard keyboard
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs

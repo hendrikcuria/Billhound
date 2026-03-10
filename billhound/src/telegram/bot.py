@@ -1,10 +1,43 @@
 """Telegram bot Application factory — registers all handlers."""
 from __future__ import annotations
 
+import html
+import traceback
+
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram import Update
+from telegram.ext import (
+    Application,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 from src.config.settings import Settings
+
+logger = structlog.get_logger()
+
+
+async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Global error handler — log the error and notify the user."""
+    logger.error(
+        "telegram.handler_error",
+        error=str(context.error),
+        traceback="".join(
+            traceback.format_exception(
+                type(context.error), context.error, context.error.__traceback__
+            )
+        ),
+    )
+    if isinstance(update, Update) and update.effective_message:
+        error_text = html.escape(str(context.error))
+        await update.effective_message.reply_text(
+            f"Something went wrong: {error_text}\n\n"
+            "Please try again. If the problem persists, contact support."
+        )
 
 
 def create_bot_application(
@@ -30,21 +63,30 @@ def create_bot_application(
         deletecreds_handler,
         mycreds_handler,
     )
+    from src.telegram.handlers.dashboard import dashboard_callback_handler
     from src.telegram.handlers.deleteaccount import (
         deleteaccount_confirm_handler,
         deleteaccount_handler,
     )
+    from src.telegram.handlers.help import help_handler
     from src.telegram.handlers.mydata import mydata_handler
     from src.telegram.handlers.oauth_connect import connect_handler
     from src.telegram.handlers.remove import remove_handler
     from src.telegram.handlers.start import start_handler
     from src.telegram.handlers.subscriptions import subscriptions_handler
 
+    # Global error handler — surfaces errors to the user
+    app.add_error_handler(_error_handler)
+
     # ConversationHandler must be registered before generic MessageHandlers
     app.add_handler(build_addcreds_conversation())
 
+    # Callback query handler for inline keyboard buttons
+    app.add_handler(CallbackQueryHandler(dashboard_callback_handler))
+
     # Command handlers
     app.add_handler(CommandHandler("start", start_handler))
+    app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("subscriptions", subscriptions_handler))
     app.add_handler(CommandHandler("mydata", mydata_handler))
     app.add_handler(CommandHandler("deleteaccount", deleteaccount_handler))

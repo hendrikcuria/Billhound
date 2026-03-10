@@ -5,13 +5,15 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
+import structlog
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from src.config.constants import SubscriptionStatus
 from src.db.repositories.subscription_repo import SubscriptionRepository
 from src.telegram.formatting import format_billing_cycle, format_currency, to_monthly
 from src.telegram.handlers._common import get_user_or_reply
+
+logger = structlog.get_logger()
 
 
 async def subscriptions_handler(
@@ -25,13 +27,16 @@ async def subscriptions_handler(
             return
 
         sub_repo = SubscriptionRepository(session)
-        active_subs = await sub_repo.get_active_by_user(user.id)
-        pending = await sub_repo.get_pending_by_user(user.id)
+        active_subs = list(await sub_repo.get_active_by_user(user.id))
+        pending = list(await sub_repo.get_pending_by_user(user.id))
 
     if not active_subs and not pending:
         await update.message.reply_text(
-            "No active subscriptions found.\n"
-            'Add one with: add Netflix RM54 monthly'
+            "You currently have 0 active subscriptions tracked.\n\n"
+            "Add one manually:\n"
+            "  add Netflix RM54 monthly\n\n"
+            "Or connect your email to auto-detect:\n"
+            "  /connect gmail"
         )
         return
 

@@ -27,6 +27,7 @@ def _make_update(telegram_id=12345, text="", username="testuser"):
     update.effective_user.first_name = "Test"
     update.message.text = text
     update.message.reply_text = AsyncMock()
+    update.callback_query = None  # not a callback query
     return update
 
 
