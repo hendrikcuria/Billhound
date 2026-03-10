@@ -15,26 +15,29 @@ logger = structlog.get_logger()
 
 DASHBOARD_KEYBOARD = InlineKeyboardMarkup([
     [
-        InlineKeyboardButton("Connect Gmail", callback_data="connect_gmail"),
-        InlineKeyboardButton("Connect Outlook", callback_data="connect_outlook"),
+        InlineKeyboardButton(
+            "\U0001f4f1 View Subscriptions", callback_data="view_subscriptions"
+        ),
     ],
     [
-        InlineKeyboardButton("View Subscriptions", callback_data="view_subscriptions"),
-        InlineKeyboardButton("My Data", callback_data="my_data"),
+        InlineKeyboardButton(
+            "\U0001f517 Connect Inbox", callback_data="connect_inbox"
+        ),
+        InlineKeyboardButton(
+            "\u2795 Add Subscription", callback_data="add_subscription"
+        ),
+    ],
+    [
+        InlineKeyboardButton(
+            "\u2699\ufe0f Settings / Data", callback_data="settings_data"
+        ),
     ],
 ])
 
 WELCOME_TEXT = (
     "Welcome to Billhound, {name}!\n\n"
     "I track your subscriptions and alert you before renewals.\n\n"
-    "Quick actions (tap a button below):\n"
-    "  Connect Gmail / Outlook — auto-detect subscriptions\n"
-    "  View Subscriptions — see your active subs\n"
-    "  My Data — export everything we store\n\n"
-    "Text commands:\n"
-    '  "add Netflix RM54 monthly" — add a subscription\n'
-    '  "cancel Netflix" — initiate cancellation\n'
-    "  /help — full command reference"
+    "Use the buttons below to get started:"
 )
 
 WELCOME_BACK_TEXT = (

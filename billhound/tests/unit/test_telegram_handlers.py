@@ -10,12 +10,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.config.constants import BillingCycle, SubscriptionStatus
 from src.db.repositories.subscription_repo import SubscriptionRepository
 from src.db.repositories.user_repo import UserRepository
-from src.telegram.handlers.add import add_handler
+from src.telegram.handlers.add import (
+    AWAITING_AMOUNT,
+    AWAITING_CYCLE,
+    AWAITING_NAME,
+    add_amount,
+    add_cycle,
+    add_name,
+    add_start,
+)
 from src.telegram.handlers.confirm import confirm_handler
 from src.telegram.handlers.deleteaccount import (
     deleteaccount_confirm_handler,
     deleteaccount_handler,
 )
+from src.telegram.handlers.fallback import fallback_handler
 from src.telegram.handlers.help import help_handler
 from src.telegram.handlers.mydata import mydata_handler
 from src.telegram.handlers.remove import remove_handler
@@ -27,6 +36,7 @@ from tests.factories import make_subscription, make_user
 def _make_context(session_factory):
     ctx = MagicMock()
     ctx.bot_data = {"session_factory": session_factory}
+    ctx.user_data = {}
     return ctx
 
 
@@ -39,6 +49,21 @@ def _make_update(telegram_id=12345, text="", username="testuser", first_name="Te
     update.message.text = text
     update.message.reply_text = AsyncMock()
     update.callback_query = None  # not a callback query
+    return update
+
+
+def _make_callback_update(telegram_id=12345, callback_data=""):
+    update = MagicMock()
+    update.effective_user.id = telegram_id
+    update.effective_user.username = "testuser"
+    update.effective_user.full_name = "Test User"
+    update.effective_user.first_name = "Test"
+    update.message = None
+    update.callback_query.data = callback_data
+    update.callback_query.answer = AsyncMock()
+    update.callback_query.message.reply_text = AsyncMock()
+    update.callback_query.message.chat_id = telegram_id
+    update.effective_chat.id = telegram_id
     return update
 
 
@@ -108,6 +133,9 @@ class TestSubscriptionsHandler:
 
         reply_text = update.message.reply_text.call_args[0][0]
         assert "0 active subscriptions tracked" in reply_text
+        # Should include inline buttons
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs
 
     @pytest.mark.asyncio
     async def test_with_subscriptions(self, session_factory) -> None:
@@ -133,20 +161,80 @@ class TestSubscriptionsHandler:
         assert "RM54.00" in reply_text
 
 
-class TestAddHandler:
+class TestAddFSM:
+    """Tests for the guided Add Subscription FSM."""
+
     @pytest.mark.asyncio
-    async def test_add_valid_subscription(self, session_factory) -> None:
+    async def test_add_start_asks_name(self, session_factory) -> None:
+        update = _make_callback_update(
+            telegram_id=900020, callback_data="add_subscription"
+        )
+        ctx = _make_context(session_factory)
+
+        result = await add_start(update, ctx)
+
+        assert result == AWAITING_NAME
+        reply_text = update.callback_query.message.reply_text.call_args[0][0]
+        assert "name of the service" in reply_text
+
+    @pytest.mark.asyncio
+    async def test_add_name_asks_amount(self, session_factory) -> None:
+        update = _make_update(telegram_id=900020, text="Netflix")
+        ctx = _make_context(session_factory)
+
+        result = await add_name(update, ctx)
+
+        assert result == AWAITING_AMOUNT
+        assert ctx.user_data["add_service_name"] == "Netflix"
+        reply_text = update.message.reply_text.call_args[0][0]
+        assert "Netflix" in reply_text
+        assert "billing cycle" in reply_text.lower() or "amount" in reply_text.lower()
+
+    @pytest.mark.asyncio
+    async def test_add_amount_asks_cycle(self, session_factory) -> None:
+        update = _make_update(telegram_id=900020, text="RM54")
+        ctx = _make_context(session_factory)
+        ctx.user_data["add_service_name"] = "Netflix"
+
+        result = await add_amount(update, ctx)
+
+        assert result == AWAITING_CYCLE
+        assert ctx.user_data["add_amount"] == Decimal("54")
+        # Should show cycle keyboard
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs
+
+    @pytest.mark.asyncio
+    async def test_add_invalid_amount_retries(self, session_factory) -> None:
+        update = _make_update(telegram_id=900020, text="abc")
+        ctx = _make_context(session_factory)
+        ctx.user_data["add_service_name"] = "Netflix"
+
+        result = await add_amount(update, ctx)
+
+        assert result == AWAITING_AMOUNT
+        reply_text = update.message.reply_text.call_args[0][0]
+        assert "valid amount" in reply_text
+
+    @pytest.mark.asyncio
+    async def test_add_cycle_creates_subscription(self, session_factory) -> None:
+        # Pre-create user
         async with session_factory() as session:
             repo = UserRepository(session)
             await repo.create(telegram_id=900020, display_name="Test")
             await session.commit()
 
-        update = _make_update(telegram_id=900020, text="add Netflix RM54 monthly")
+        update = _make_callback_update(
+            telegram_id=900020, callback_data="cycle_monthly"
+        )
         ctx = _make_context(session_factory)
+        ctx.user_data["add_service_name"] = "Netflix"
+        ctx.user_data["add_amount"] = Decimal("54")
 
-        await add_handler(update, ctx)
+        result = await add_cycle(update, ctx)
 
-        reply_text = update.message.reply_text.call_args[0][0]
+        assert result == -1  # ConversationHandler.END
+        reply_text = update.callback_query.message.reply_text.call_args[0][0]
         assert "Added Netflix" in reply_text
         assert "RM54.00" in reply_text
 
@@ -158,7 +246,7 @@ class TestAddHandler:
             assert subs[0].is_manually_added is True
 
     @pytest.mark.asyncio
-    async def test_add_duplicate_rejected(self, session_factory) -> None:
+    async def test_add_cycle_duplicate_rejected(self, session_factory) -> None:
         async with session_factory() as session:
             user = make_user(telegram_id=900021)
             session.add(user)
@@ -168,28 +256,18 @@ class TestAddHandler:
             session.add(sub)
             await session.commit()
 
-        update = _make_update(telegram_id=900021, text="add Netflix RM54 monthly")
+        update = _make_callback_update(
+            telegram_id=900021, callback_data="cycle_monthly"
+        )
         ctx = _make_context(session_factory)
+        ctx.user_data["add_service_name"] = "Netflix"
+        ctx.user_data["add_amount"] = Decimal("54")
 
-        await add_handler(update, ctx)
+        result = await add_cycle(update, ctx)
 
-        reply_text = update.message.reply_text.call_args[0][0]
+        assert result == -1
+        reply_text = update.callback_query.message.reply_text.call_args[0][0]
         assert "already exists" in reply_text
-
-    @pytest.mark.asyncio
-    async def test_add_invalid_format(self, session_factory) -> None:
-        async with session_factory() as session:
-            repo = UserRepository(session)
-            await repo.create(telegram_id=900022, display_name="Test")
-            await session.commit()
-
-        update = _make_update(telegram_id=900022, text="add ???")
-        ctx = _make_context(session_factory)
-
-        await add_handler(update, ctx)
-
-        reply_text = update.message.reply_text.call_args[0][0]
-        assert "Format:" in reply_text
 
 
 class TestRemoveHandler:
@@ -355,8 +433,21 @@ class TestHelpHandler:
         reply_text = update.message.reply_text.call_args[0][0]
         assert "Command Reference" in reply_text
         assert "/subscriptions" in reply_text
-        assert "add" in reply_text
         assert "cancel" in reply_text
         # Should include dashboard keyboard
+        reply_kwargs = update.message.reply_text.call_args[1]
+        assert "reply_markup" in reply_kwargs
+
+
+class TestFallbackHandler:
+    @pytest.mark.asyncio
+    async def test_unrecognized_text_shows_dashboard(self) -> None:
+        update = _make_update(telegram_id=900080, text="blah blah")
+        ctx = MagicMock()
+
+        await fallback_handler(update, ctx)
+
+        reply_text = update.message.reply_text.call_args[0][0]
+        assert "didn't quite catch that" in reply_text
         reply_kwargs = update.message.reply_text.call_args[1]
         assert "reply_markup" in reply_kwargs

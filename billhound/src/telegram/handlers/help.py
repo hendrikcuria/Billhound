@@ -8,26 +8,21 @@ from src.telegram.handlers.start import DASHBOARD_KEYBOARD
 
 HELP_TEXT = (
     "Billhound Command Reference\n\n"
+    "Buttons (tap below):\n"
+    "  View Subscriptions \u2014 see your active subs\n"
+    "  Connect Inbox \u2014 auto-detect subscriptions from email\n"
+    "  Add Subscription \u2014 guided manual entry\n"
+    "  Settings / Data \u2014 export, credentials, account\n\n"
     "Slash commands:\n"
-    "  /start — show dashboard\n"
-    "  /subscriptions — view active subscriptions\n"
-    "  /connect gmail — connect Gmail for auto-detection\n"
-    "  /connect outlook — connect Outlook\n"
-    "  /mydata — export your stored data\n"
-    "  /mycreds — list saved service credentials\n"
-    "  /addcreds <service> — store login credentials\n"
-    "  /deletecreds <service> — remove credentials\n"
-    "  /deleteaccount — permanently delete your account\n"
-    "  /help — this message\n\n"
+    "  /start \u2014 show dashboard\n"
+    "  /subscriptions \u2014 view active subscriptions\n"
+    "  /connect gmail \u2014 connect Gmail\n"
+    "  /connect outlook \u2014 connect Outlook\n"
+    "  /mydata \u2014 export your stored data\n"
+    "  /help \u2014 this message\n\n"
     "Text commands:\n"
-    '  add <name> <amount> [cycle]\n'
-    '    Example: add Netflix RM54 monthly\n'
-    '    Example: add Gym RM150 annual\n'
-    '    Cycles: weekly, monthly, quarterly, annual\n\n'
-    '  confirm <name>\n'
-    '    Approve a pending subscription detected from email\n\n'
-    '  cancel <name>\n'
-    '    Mark a subscription as cancelled\n'
+    '  confirm <name> \u2014 approve a pending subscription\n'
+    '  cancel <name> \u2014 mark a subscription as cancelled'
 )
 
 

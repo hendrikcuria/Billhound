@@ -6,7 +6,7 @@ import traceback
 
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -40,6 +40,20 @@ async def _error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
+async def _post_init(application: Application) -> None:
+    """Register bot commands with Telegram's native menu button."""
+    await application.bot.set_my_commands([
+        BotCommand("start", "Show dashboard"),
+        BotCommand("subscriptions", "View your subscriptions"),
+        BotCommand("help", "Command reference"),
+        BotCommand("connect", "Connect email inbox"),
+        BotCommand("mydata", "Export your data"),
+        BotCommand("mycreds", "List stored credentials"),
+        BotCommand("deleteaccount", "Delete your account"),
+    ])
+    logger.info("bot.commands_registered")
+
+
 def create_bot_application(
     token: str,
     session_factory: async_sessionmaker[AsyncSession],
@@ -47,7 +61,7 @@ def create_bot_application(
     gmail_oauth: object | None = None,
     outlook_oauth: object | None = None,
 ) -> Application:
-    app = Application.builder().token(token).build()
+    app = Application.builder().token(token).post_init(_post_init).build()
 
     app.bot_data["session_factory"] = session_factory
     app.bot_data["settings"] = settings
@@ -56,7 +70,7 @@ def create_bot_application(
     if outlook_oauth:
         app.bot_data["outlook_oauth"] = outlook_oauth
 
-    from src.telegram.handlers.add import add_handler
+    from src.telegram.handlers.add import build_add_subscription_conversation
     from src.telegram.handlers.confirm import confirm_handler
     from src.telegram.handlers.credentials import (
         build_addcreds_conversation,
@@ -68,6 +82,7 @@ def create_bot_application(
         deleteaccount_confirm_handler,
         deleteaccount_handler,
     )
+    from src.telegram.handlers.fallback import fallback_handler
     from src.telegram.handlers.help import help_handler
     from src.telegram.handlers.mydata import mydata_handler
     from src.telegram.handlers.oauth_connect import connect_handler
@@ -78,13 +93,15 @@ def create_bot_application(
     # Global error handler — surfaces errors to the user
     app.add_error_handler(_error_handler)
 
-    # ConversationHandler must be registered before generic MessageHandlers
+    # ── Conversation handlers (must be registered first) ──
     app.add_handler(build_addcreds_conversation())
+    app.add_handler(build_add_subscription_conversation())
 
-    # Callback query handler for inline keyboard buttons
+    # ── Callback query handler for dashboard buttons ──
+    # (add_subscription callbacks are handled by the ConversationHandler above)
     app.add_handler(CallbackQueryHandler(dashboard_callback_handler))
 
-    # Command handlers
+    # ── Command handlers ──
     app.add_handler(CommandHandler("start", start_handler))
     app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("subscriptions", subscriptions_handler))
@@ -94,7 +111,7 @@ def create_bot_application(
     app.add_handler(CommandHandler("deletecreds", deletecreds_handler))
     app.add_handler(CommandHandler("connect", connect_handler))
 
-    # Text message handlers (more specific first)
+    # ── Text message handlers (specific patterns) ──
     app.add_handler(MessageHandler(
         filters.Regex(r"(?i)^YES DELETE MY ACCOUNT$"),
         deleteaccount_confirm_handler,
@@ -105,8 +122,10 @@ def create_bot_application(
     app.add_handler(MessageHandler(
         filters.Regex(r"(?i)^cancel\s+.+"), remove_handler
     ))
+
+    # ── Global fallback — must be LAST ──
     app.add_handler(MessageHandler(
-        filters.Regex(r"(?i)^add\s+.+"), add_handler
+        filters.TEXT & ~filters.COMMAND, fallback_handler
     ))
 
     return app

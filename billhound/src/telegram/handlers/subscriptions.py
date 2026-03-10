@@ -6,7 +6,7 @@ from datetime import date
 from decimal import Decimal
 
 import structlog
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from src.db.repositories.subscription_repo import SubscriptionRepository
@@ -14,6 +14,17 @@ from src.telegram.formatting import format_billing_cycle, format_currency, to_mo
 from src.telegram.handlers._common import get_user_or_reply
 
 logger = structlog.get_logger()
+
+EMPTY_STATE_KEYBOARD = InlineKeyboardMarkup([
+    [
+        InlineKeyboardButton(
+            "\U0001f517 Connect Inbox", callback_data="connect_inbox"
+        ),
+        InlineKeyboardButton(
+            "\u2795 Add Subscription", callback_data="add_subscription"
+        ),
+    ],
+])
 
 
 async def subscriptions_handler(
@@ -33,10 +44,8 @@ async def subscriptions_handler(
     if not active_subs and not pending:
         await update.message.reply_text(
             "You currently have 0 active subscriptions tracked.\n\n"
-            "Add one manually:\n"
-            "  add Netflix RM54 monthly\n\n"
-            "Or connect your email to auto-detect:\n"
-            "  /connect gmail"
+            "Get started by connecting your email or adding one manually:",
+            reply_markup=EMPTY_STATE_KEYBOARD,
         )
         return
 
@@ -55,7 +64,7 @@ async def subscriptions_handler(
                 days_until = (s.next_renewal_date - date.today()).days
                 renewal_info = f" (renews in {days_until}d)"
             lines.append(
-                f"  {s.service_name} — "
+                f"  {s.service_name} \u2014 "
                 f"{format_currency(s.amount)}{format_billing_cycle(s.billing_cycle)}"
                 f"{renewal_info}"
             )
@@ -67,7 +76,7 @@ async def subscriptions_handler(
         lines.append(f"\n\nPending Confirmation ({len(pending)}):")
         for s in pending:
             lines.append(
-                f"  {s.service_name} — {format_currency(s.amount)} "
+                f"  {s.service_name} \u2014 {format_currency(s.amount)} "
                 f"(confidence: {s.confidence_score:.0%})\n"
                 f'  Reply "confirm {s.service_name}" to approve'
             )
