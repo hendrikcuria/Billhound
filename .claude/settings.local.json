@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install -g docx)",
+      "Bash(npm install docx)",
+      "Bash(node generate_prd.js)",
+      "Bash(python 'C:/Users/ruben/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/f3429022-c360-4b8e-9aee-940516fc9014/c6ed7d29-9d83-4a09-ba32-89a289c0e126/skills/docx/scripts/office/validate.py' 'C:/Users/ruben/Desktop/Virtuals Notion Request/Subscription_Management_Agent_PRD.docx')",
+      "Bash(python \"C:/Users/ruben/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/f3429022-c360-4b8e-9aee-940516fc9014/c6ed7d29-9d83-4a09-ba32-89a289c0e126/skills/docx/scripts/office/validate.py\" \"C:/Users/ruben/Desktop/Virtuals Notion Request/Subscription_Management_Agent_PRD.docx\")",
+      "Bash(python3 \"C:/Users/ruben/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/f3429022-c360-4b8e-9aee-940516fc9014/c6ed7d29-9d83-4a09-ba32-89a289c0e126/skills/docx/scripts/office/validate.py\" \"C:/Users/ruben/Desktop/Virtuals Notion Request/Subscription_Management_Agent_PRD.docx\")",
+      "Bash(python validate.py \"C:/Users/ruben/Desktop/Virtuals Notion Request/Subscription_Management_Agent_PRD.docx\")",
+      "Bash(PYTHONIOENCODING=utf-8 python validate.py \"C:/Users/ruben/Desktop/Virtuals Notion Request/Subscription_Management_Agent_PRD.docx\")",
+      "Bash(node -e \":*)",
+      "Bash(python -c \":*)",
+      "Bash(pip --version)",
+      "Bash(python3 -c \":*)",
+      "Bash(PYTHONIOENCODING=utf-8 python3 -c \":*)",
+      "Bash(python3 -c \"from docx import Document; doc = Document\\(''Subscription_Management_Agent_PRD.docx''\\); print\\(''\\\\n''.join\\([p.text for p in doc.paragraphs]\\)\\)\")",
+      "Bash(python3:*)",
+      "Bash(for d in src src/config src/db src/db/models src/db/repositories src/trust src/email_ingestion src/email_ingestion/oauth src/pdf src/llm src/telegram src/telegram/handlers src/automation src/automation/flows src/services tests tests/unit tests/integration tests/e2e)",
+      "Bash(do touch \"$d/__init__.py\")",
+      "Bash(done)",
+      "Bash(python -m venv .venv)",
+      "Bash(source .venv/Scripts/activate)",
+      "Bash(pip install --upgrade pip -q)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(pip install \"aioresponses>=0.7.0\" -q)",
+      "Bash(pip install openai anthropic pdfplumber -q)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -c \"import telegram; print\\(telegram.__version__\\)\")",
+      "Bash(pip install \"python-telegram-bot>=21.9\")",
+      "Bash(python -m pytest tests/unit/test_alert_service.py tests/unit/test_formatting.py tests/unit/test_telegram_handlers.py tests/unit/test_savings_report.py -v --tb=short)",
+      "Bash(python -c \"import playwright; print\\(playwright.__version__\\)\")",
+      "Bash(pip install playwright)",
+      "Bash(python -m playwright install chromium)",
+      "Bash(.venv/Scripts/python -m pytest tests/ -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/unit/test_service_credential_repo.py -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/unit/test_cancellation_strategy.py tests/unit/test_auth_strategy.py -v --tb=short)"
+    ]
+  }
+}
